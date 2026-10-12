@@ -7,6 +7,13 @@ env/
 __pycache__/
 *.py[cod]
 *.egg-info/
+*.pyc
+
+# Generated SQLite database
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
 
 # Data (regenerable via extract.py)
 data/

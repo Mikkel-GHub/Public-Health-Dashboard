@@ -5,6 +5,10 @@ import random
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
+import sqlite3
+import pandas as pd
+from html import escape
+from folium.plugins import MarkerCluster
 
 st.set_page_config(layout="wide", page_title="Sydney Health Map & Analytics")
 
@@ -25,7 +29,29 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-APP_DIR = Path(__file__).parent.resolve()
+APP_DIR = Path(__file__).parent.resolve() 
+
+# SQLite database is stored in the project root /data folder
+DB_PATH = APP_DIR.parent / "data" / "health.db"
+
+
+@st.cache_data
+def load_hospitals(db_path, db_modified):
+    """Retrieve transformed hospital records from SQLite."""
+
+    with sqlite3.connect(db_path) as conn:
+        hospitals = pd.read_sql_query(
+            """
+            SELECT hospital_id, hospital_name, state,
+                   latitude, longitude, private, closed
+            FROM hospitals
+            """,
+            conn
+        )
+
+    return hospitals
+
+
 # Updated filename to match your team's repository
 geojson_path = APP_DIR / "Greater Sydney - LGAs.json"
 static_dir = APP_DIR / "static"
@@ -139,10 +165,25 @@ def load_and_enrich_geojson(file_path):
 
 geo_data, lga_summary = load_and_enrich_geojson(geojson_path)
 
+# Load hospitals from SQLite
+if DB_PATH.exists():
+    hospitals_df = load_hospitals(
+        str(DB_PATH),
+        DB_PATH.stat().st_mtime_ns
+    )
+else:
+    hospitals_df = pd.DataFrame()
+    st.warning("Hospital database not found. Run python pipeline.py first.")
+
+
 # 4. SIDEBAR CONTROLS & INSPECTOR
 st.sidebar.title("Map Controls & Rankings")
 show_lgas = st.sidebar.toggle("Show LGA Boundaries", value=True)
 show_markers = st.sidebar.toggle("Show Facility Markers", value=True)
+
+show_markers = st.sidebar.toggle("Show Hospital Locations", value=True)
+
+st.sidebar.caption(f"NSW hospital records: {len(hospitals_df)}")
 
 st.sidebar.divider()
 
@@ -244,7 +285,72 @@ if show_markers:
             icon=folium.Icon(color=fac["color"], icon=fac["icon"], prefix="fa")
         ).add_to(m)
 
-# 7. RENDER MAP
+# 7.  HOSPITAL MARKERS
+if show_markers and not hospitals_df.empty:
+
+    # Create a marker cluster
+    hospital_cluster = MarkerCluster(
+        name="NSW Hospitals"
+    ).add_to(m)
+
+    # Loop through hospital records
+    for _, hospital in hospitals_df.iterrows():
+
+        hospital_name = escape(str(hospital["hospital_name"]))
+        hospital_id = escape(str(hospital["hospital_id"]))
+
+        # Determine hospital classification
+        hospital_type = (
+            "Private Hospital"
+            if hospital["private"]
+            else "Public Hospital"
+        )
+
+        hospital_status = (
+            "Closed"
+            if hospital["closed"]
+            else "Not marked as closed"
+        )
+
+        # Create popup HTML
+        popup_html = f"""
+        <div style="font-family: Arial; width: 220px;">
+            <h4 style="color: #1a237e; margin-bottom: 6px;">
+                {hospital_name}
+            </h4>
+
+            <b>Hospital ID:</b> {hospital_id}<br>
+            <b>Type:</b> {hospital_type}<br>
+            <b>Status:</b> {hospital_status}<br>
+            <b>State:</b> NSW<br>
+
+            <hr>
+
+            <b>Latitude:</b> {hospital['latitude']:.6f}<br>
+            <b>Longitude:</b> {hospital['longitude']:.6f}
+        </div>
+        """
+
+        # Different marker colours for private/public
+        marker_color = (
+            "purple" if hospital["private"] else "blue"
+        )
+
+        folium.Marker(
+            location=[
+                hospital["latitude"],
+                hospital["longitude"]
+            ],
+            popup=folium.Popup(popup_html, max_width=260),
+            tooltip=hospital_name,
+            icon=folium.Icon(
+                color=marker_color,
+                icon="plus-sign"
+            )
+        ).add_to(hospital_cluster)
+
+
+# 8. RENDER MAP
 st_folium(
     m,
     use_container_width=True,

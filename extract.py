@@ -100,19 +100,18 @@ if __name__ == "__main__":
     print(f"Fetched {len(hospitals)} reporting units")
     if hospitals:
         print(json.dumps(hospitals[0], indent=2))
-        
-        
-#test
-# 1. Distribution of unit types
-from collections import Counter
-types = Counter(u["reporting_unit_type"]["reporting_unit_type_code"] for u in hospitals)
-print(types)
-# Expect: {'H': ~700, 'LHN': ~30, 'PHN': ~31, 'S': ~8, ...}
+         
+    #test
+    # 1. Distribution of unit types
+    from collections import Counter
+    types = Counter(u["reporting_unit_type"]["reporting_unit_type_code"] for u in hospitals)
+    print(types)
+    # Expect: {'H': ~700, 'LHN': ~30, 'PHN': ~31, 'S': ~8, ...}
 
-# 2. How many have coordinates (needed for Leaflet)?
-with_coords = sum(1 for u in hospitals if u.get("latitude") and u.get("longitude"))
-print(f"{with_coords}/{len(hospitals)} have coordinates")
+    # 2. How many have coordinates (needed for Leaflet)?
+    with_coords = sum(1 for u in hospitals if u.get("latitude") and u.get("longitude"))
+    print(f"{with_coords}/{len(hospitals)} have coordinates")
 
-# 3. How many are private vs public?
-print("Private:", sum(1 for u in hospitals if u.get("private")))
-print("Closed:",  sum(1 for u in hospitals if u.get("closed")))
+    # 3. How many are private vs public?
+    print("Private:", sum(1 for u in hospitals if u.get("private")))
+    print("Closed:",  sum(1 for u in hospitals if u.get("closed")))
