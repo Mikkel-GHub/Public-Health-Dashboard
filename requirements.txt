@@ -1,3 +1,6 @@
+streamlit
+streamlit_folium
+folium
 certifi==2026.7.22
 charset-normalizer==3.5.2
 geopandas==1.2.0

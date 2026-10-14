@@ -253,38 +253,6 @@ if show_lgas and geo_data:
         )
     ).add_to(m)
 
-# 6. FACILITY MARKERS
-if show_markers:
-    facilities = [
-        {"name": "UTS Health & Science Precinct", "type": "Education & Clinical Hub", "lat": -33.8832, "lon": 151.2007, "color": "purple", "icon": "graduation-cap", "image_filename": "uts.jpg"},
-        {"name": "Hyde Park Community Precinct", "type": "Public Health & Recreation Zone", "lat": -33.8731, "lon": 151.2113, "color": "green", "icon": "tree", "image_filename": "hydepark.jpg"},
-        {"name": "Central Transport & Health Access Hub", "type": "Regional Transit Facility", "lat": -33.8825, "lon": 151.2067, "color": "blue", "icon": "subway", "image_filename": "central.jpg"}
-    ]
-
-    for fac in facilities:
-        img_path = static_dir / fac["image_filename"]
-        b64_str = get_base64_image(img_path)
-
-        if b64_str:
-            img_html = f'<img src="{b64_str}" style="width:100%; height:110px; object-fit:cover; border-radius:4px; margin-top:6px;" alt="{fac["name"]}"/>'
-        else:
-            img_html = '<div style="background:#f0f0f0; padding:15px; text-align:center; font-size:11px; color:#888; border-radius:4px; margin-top:6px;">[Image Asset Pending]</div>'
-
-        marker_popup_html = f"""
-        <div style="font-family: sans-serif; width: 210px;">
-            <b style="font-size: 13px; color: #1a237e;">{fac['name']}</b><br>
-            <span style="font-size: 11px; color: #555;">{fac['type']}</span>
-            {img_html}
-        </div>
-        """
-
-        folium.Marker(
-            location=[fac["lat"], fac["lon"]],
-            popup=folium.Popup(marker_popup_html, max_width=230),
-            tooltip=fac["name"],
-            icon=folium.Icon(color=fac["color"], icon=fac["icon"], prefix="fa")
-        ).add_to(m)
-
 # 7.  HOSPITAL MARKERS
 if show_markers and not hospitals_df.empty:
 
