@@ -1,6 +1,8 @@
 import requests
 import json
 import time
+import csv
+import io
 from typing import Iterator
 
 BASE_URL = "https://myhospitalsapi.aihw.gov.au"
@@ -129,6 +131,23 @@ def extract_all_flat_data_extracts(
         )
         for cat in categories
     }
+
+def extract_census(dataflow):
+    """Download one ABS table and return it as a list of rows."""
+    url = f"https://data.api.abs.gov.au/rest/data/{dataflow}/all"
+
+    for attempt in range(3):
+        try:
+            r = requests.get(url, params={"format": "csv"}, timeout=300)
+            r.raise_for_status()
+            break
+        except requests.exceptions.RequestException:
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
+
+    text = r.content.decode("utf-8-sig")
+    return list(csv.DictReader(io.StringIO(text)))
 
 
 if __name__ == "__main__":
