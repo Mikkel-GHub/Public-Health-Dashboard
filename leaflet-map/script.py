@@ -54,6 +54,7 @@ def load_hospitals(db_path, db_modified):
 
 # Updated filename to match your team's repository
 geojson_path = APP_DIR / "Greater Sydney - LGAs.json"
+census_path = APP_DIR.parent / "census_clean.csv"
 static_dir = APP_DIR / "static"
 
 # Color map matching your JavaScript script
@@ -93,10 +94,48 @@ def load_and_enrich_geojson(file_path):
 
     geo_data = raw_data.get("LocalGovernmentArea", raw_data)
     lga_summary_list = []
+        # Load cleaned ABS Census data
+    census_df = pd.read_csv(census_path)
+
+    # Make sure abscode is in the same format as the map
+    census_df["abscode"] = pd.to_numeric(
+        census_df["abscode"],
+        errors="coerce"
+    )
+
+    census_df = census_df.dropna(subset=["abscode"])
+
+    census_df["abscode"] = (
+        census_df["abscode"]
+        .astype(int)
+        .astype(str)
+    )
+
+    # Change the Census data from:
+    # abscode | metric | value
+    #
+    # into one record per LGA
+    census_wide = census_df.pivot_table(
+        index="abscode",
+        columns="metric",
+        values="value",
+        aggfunc="first"
+    )
+
+    census_lookup = census_wide.to_dict(orient="index")
 
     if "features" in geo_data:
         for feature in geo_data["features"]:
             props = feature.get("properties", {})
+                        # Match this map area to ABS Census data
+            raw_abscode = props.get("abscode")
+
+            try:
+                map_abscode = str(int(float(raw_abscode)))
+            except (TypeError, ValueError):
+                map_abscode = None
+
+            census_stats = census_lookup.get(map_abscode, {})
             
             # Extracts LGA name checking all fallback property keys from your JS code
             lga_name = (
@@ -116,6 +155,26 @@ def load_and_enrich_geojson(file_path):
             health_score_num = random.randint(72, 98)
             stats = {
                 "lga_name": lga_name,
+                                "population": census_stats.get("population"),
+                "median_age": census_stats.get("median_age"),
+                "median_household_income_weekly": census_stats.get(
+                    "median_household_income_weekly"
+                ),
+                "pct_aged_65_plus": census_stats.get("pct_aged_65_plus"),
+                "pct_arthritis": census_stats.get("pct_arthritis"),
+                "pct_asthma": census_stats.get("pct_asthma"),
+                "pct_cancer": census_stats.get("pct_cancer"),
+                "pct_dementia": census_stats.get("pct_dementia"),
+                "pct_diabetes": census_stats.get("pct_diabetes"),
+                "pct_heart_disease": census_stats.get("pct_heart_disease"),
+                "pct_kidney_disease": census_stats.get("pct_kidney_disease"),
+                "pct_lung_condition": census_stats.get("pct_lung_condition"),
+                "pct_mental_health": census_stats.get("pct_mental_health"),
+                "pct_needs_assistance": census_stats.get("pct_needs_assistance"),
+                "pct_stroke": census_stats.get("pct_stroke"),
+                "seifa_disadvantage_score": census_stats.get(
+                    "seifa_disadvantage_score"
+                ),
                 "population_density": f"{random.randint(1200, 8500):,} / km²",
                 "active_gps": random.randint(15, 120),
                 "walkability_score": f"{random.randint(60, 98)}/100",
@@ -130,6 +189,19 @@ def load_and_enrich_geojson(file_path):
                 <h4 style="margin: 0 0 2px 0; font-size: 15px; color: #1a237e;">{lga_name}</h4>
                 <span style="color: #666; font-size: 11px;">Local Government Health Profile</span>
                 <hr style="margin: 6px 0 8px 0; border: 0; border-top: 1px solid #ddd;">
+                            <details open style="margin-bottom: 4px; border: 1px solid #e0e0e0; border-radius: 4px; padding: 4px 6px; background-color: #f5f9ff;">
+                <summary style="font-weight: bold; cursor: pointer; font-size: 12px; color: #333;">ABS Census 2021</summary>
+                <div style="margin-top: 4px; font-size: 11px; color: #444; line-height: 1.5;">
+                    <b>Population:</b> {stats['population']}<br>
+                    <b>Median Age:</b> {stats['median_age']}<br>
+                    <b>Median Weekly Household Income:</b> ${stats['median_household_income_weekly']}<br>
+                    <b>Aged 65+:</b> {stats['pct_aged_65_plus']}%<br>
+                    <b>Asthma:</b> {stats['pct_asthma']}%<br>
+                    <b>Diabetes:</b> {stats['pct_diabetes']}%<br>
+                    <b>Mental Health Condition:</b> {stats['pct_mental_health']}%<br>
+                    <b>SEIFA Disadvantage Score:</b> {stats['seifa_disadvantage_score']}
+                </div>
+            </details>
                 
                 <details open style="margin-bottom: 4px; border: 1px solid #e0e0e0; border-radius: 4px; padding: 4px 6px; background-color: #ffffff;">
                     <summary style="font-weight: bold; cursor: pointer; font-size: 12px; color: #333;">Healthcare Access</summary>
